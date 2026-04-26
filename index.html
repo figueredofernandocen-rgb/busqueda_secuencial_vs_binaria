@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Búsqueda Secuencial vs Binaria — Paradigmas de Programación</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Fraunces:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0f14;
+  --surface: #13161d;
+  --surface2: #191d27;
+  --border: rgba(255,255,255,0.07);
+  --border-em: rgba(255,255,255,0.14);
+
+  --seq-base: #e05a2b;
+  --seq-light: rgba(224,90,43,0.15);
+  --seq-glow: rgba(224,90,43,0.35);
+
+  --bin-base: #2bb5e0;
+  --bin-light: rgba(43,181,224,0.15);
+  --bin-glow: rgba(43,181,224,0.35);
+
+  --found: #2de07a;
+  --found-light: rgba(45,224,122,0.15);
+
+  --elim: rgba(255,255,255,0.04);
+  --elim-text: rgba(255,255,255,0.2);
+
+  --pivot: #f0c040;
+  --pivot-light: rgba(240,192,64,0.15);
+
+  --text-primary: #e8e6df;
+  --text-secondary: #7a7d8c;
+  --text-tertiary: #444758;
+
+  --radius: 8px;
+  --radius-lg: 14px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  padding: 0 0 5rem;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* ── Background grid ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Header ── */
+header {
+  position: relative; z-index: 1;
+  border-bottom: 0.5px solid var(--border-em);
+  padding: 2.5rem 2rem 2rem;
+  display: flex; flex-direction: column; align-items: center;
+  background: linear-gradient(180deg, rgba(43,181,224,0.04) 0%, transparent 100%);
+}
+
+.badge {
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-secondary); border: 0.5px solid var(--border-em);
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 1.2rem;
+}
+
+h1 {
+  font-family: 'Fraunces', serif; font-weight: 700;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  text-align: center; line-height: 1.15;
+  background: linear-gradient(135deg, var(--seq-base) 0%, #f0a060 30%, var(--bin-base) 70%, #60d0f0 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+.header-sub {
+  margin-top: 0.75rem; font-size: 12px; color: var(--text-secondary);
+  font-style: italic; font-family: 'Fraunces', serif; font-weight: 300;
+}
+
+/* ── Main layout ── */
+main {
+  position: relative; z-index: 1;
+  max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem;
+  display: flex; flex-direction: column; gap: 1.5rem;
+}
+
+/* ── Control panel ── */
+.controls {
+  background: var(--surface);
+  border: 0.5px solid var(--border-em);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;
+}
+
+.ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+.ctrl-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-secondary); }
+
+.ctrl-group input[type="number"],
+.ctrl-group select {
+  background: var(--surface2); border: 0.5px solid var(--border-em);
+  border-radius: var(--radius); padding: 8px 12px; font-size: 13px;
+  color: var(--text-primary); font-family: 'JetBrains Mono', monospace;
+  outline: none; width: 120px;
+  transition: border-color 0.2s;
+}
+.ctrl-group input[type="number"]:focus,
+.ctrl-group select:focus { border-color: var(--bin-base); }
+
+.target-display {
+  background: var(--surface2); border: 0.5px solid var(--border-em);
+  border-radius: var(--radius); padding: 8px 14px;
+  font-size: 18px; font-weight: 700; color: var(--found);
+  min-width: 60px; text-align: center;
+}
+
+.btn {
+  padding: 8px 20px; border-radius: var(--radius);
+  border: 0.5px solid var(--border-em); cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.06em; transition: all 0.18s; white-space: nowrap;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #1a2d4a, #142838);
+  color: var(--bin-base); border-color: rgba(43,181,224,0.4);
+}
+.btn-primary:hover { background: linear-gradient(135deg, #1f3658, #18324a); box-shadow: 0 0 16px var(--bin-glow); }
+.btn-secondary { background: transparent; color: var(--text-secondary); }
+.btn-secondary:hover { color: var(--text-primary); border-color: var(--border-em); }
+.btn:disabled { opacity: 0.35; cursor: default; }
+
+.btn-gen {
+  background: var(--surface2); color: var(--text-secondary);
+  border-color: var(--border-em);
+}
+.btn-gen:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.2); }
+
+/* ── Step controls ── */
+.step-controls {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.step-info {
+  font-size: 11px; color: var(--text-secondary); min-width: 80px; text-align: center;
+}
+
+/* ── Comparison grid ── */
+.comparison-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+}
+@media (max-width: 720px) { .comparison-grid { grid-template-columns: 1fr; } }
+
+/* ── Panel ── */
+.panel {
+  background: var(--surface); border: 0.5px solid var(--border-em);
+  border-radius: var(--radius-lg); overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+.panel-header {
+  padding: 1rem 1.25rem;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 0.5px solid var(--border);
+}
+.panel-header.seq { background: linear-gradient(90deg, rgba(224,90,43,0.12), transparent); }
+.panel-header.bin { background: linear-gradient(90deg, rgba(43,181,224,0.12), transparent); }
+
+.panel-title {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.06em;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-title .dot { width: 8px; height: 8px; border-radius: 50%; }
+.seq .dot { background: var(--seq-base); box-shadow: 0 0 8px var(--seq-glow); }
+.bin .dot { background: var(--bin-base); box-shadow: 0 0 8px var(--bin-glow); }
+
+.panel-algo {
+  font-size: 10px; color: var(--text-secondary);
+  font-family: 'Fraunces', serif; font-style: italic;
+}
+
+.panel-body { padding: 1.25rem; flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+
+/* ── Vector display ── */
+.vec-wrapper { overflow-x: auto; padding-bottom: 1rem; }
+.vec-row { display: flex; gap: 4px; min-width: max-content; }
+
+.cell {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  flex-shrink: 0;
+}
+.cell-box {
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  border-radius: 6px; border: 0.5px solid var(--border-em);
+  background: var(--surface2);
+  transition: background 0.3s, border-color 0.3s, color 0.3s, transform 0.2s;
+  color: var(--text-primary);
+}
+.cell-idx { font-size: 9px; color: var(--text-tertiary); }
+
+/* States */
+.cell-box.checking-seq { background: var(--seq-light); border-color: var(--seq-base); color: var(--seq-base); transform: translateY(-3px); box-shadow: 0 4px 12px var(--seq-glow); }
+.cell-box.checking-bin { background: var(--bin-light); border-color: var(--bin-base); color: var(--bin-base); transform: translateY(-3px); box-shadow: 0 4px 12px var(--bin-glow); }
+.cell-box.pivot { background: var(--pivot-light); border-color: var(--pivot); color: var(--pivot); }
+.cell-box.found { background: var(--found-light); border-color: var(--found); color: var(--found); transform: translateY(-4px); box-shadow: 0 6px 18px rgba(45,224,122,0.4); }
+.cell-box.eliminated { background: var(--elim); border-color: transparent; color: var(--elim-text); }
+.cell-box.in-range { border-color: rgba(43,181,224,0.3); }
+
+/* ── Step log ── */
+.step-log {
+  background: var(--surface2); border: 0.5px solid var(--border);
+  border-radius: var(--radius); padding: 0.75rem 1rem;
+  min-height: 80px; max-height: 130px; overflow-y: auto;
+  display: flex; flex-direction: column-reverse;
+}
+.log-entry {
+  font-size: 11px; padding: 3px 0; border-bottom: 0.5px solid var(--border);
+  display: flex; gap: 8px; align-items: baseline;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-step { color: var(--text-tertiary); min-width: 22px; flex-shrink: 0; }
+.log-msg.seq { color: var(--seq-base); }
+.log-msg.bin { color: var(--bin-base); }
+.log-msg.found { color: var(--found); font-weight: 600; }
+
+/* ── Stats bar ── */
+.stats-bar {
+  background: var(--surface); border: 0.5px solid var(--border-em);
+  border-radius: var(--radius-lg); padding: 1.25rem 1.5rem;
+  display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center;
+}
+
+.stat { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 120px; }
+.stat-label { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-tertiary); }
+.stat-value { font-size: 1.4rem; font-weight: 700; }
+.stat-value.seq { color: var(--seq-base); }
+.stat-value.bin { color: var(--bin-base); }
+.stat-value.neutral { color: var(--text-primary); }
+
+.stat-bar-outer { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+.stat-bar-inner { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.stat-bar-inner.seq { background: var(--seq-base); }
+.stat-bar-inner.bin { background: var(--bin-base); }
+
+.winner-badge {
+  padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  background: var(--found-light); color: var(--found); border: 0.5px solid var(--found);
+  white-space: nowrap;
+}
+
+.divider { width: 0.5px; height: 60px; background: var(--border-em); }
+@media (max-width: 600px) { .divider { display: none; } }
+
+/* ── Complexity panel ── */
+.complexity {
+  background: var(--surface); border: 0.5px solid var(--border-em);
+  border-radius: var(--radius-lg); padding: 1.25rem 1.5rem;
+}
+.complexity h3 {
+  font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-secondary); margin-bottom: 1rem;
+}
+.complexity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+.complexity-card {
+  background: var(--surface2); border: 0.5px solid var(--border);
+  border-radius: var(--radius); padding: 0.85rem 1rem;
+}
+.cc-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 0.5rem; }
+.cc-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 3px 0; border-bottom: 0.5px solid var(--border); }
+.cc-row:last-child { border-bottom: none; }
+.cc-case { color: var(--text-secondary); }
+.cc-val { font-weight: 600; }
+.cc-val.seq { color: var(--seq-base); }
+.cc-val.bin { color: var(--bin-base); }
+
+/* ── Pointer labels for binary ── */
+.pointer-row { display: flex; gap: 4px; min-width: max-content; height: 18px; position: relative; margin-bottom: 2px; }
+.pointer-cell { width: 38px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-tertiary); flex-shrink: 0; }
+.pointer-cell.ptr-low { color: var(--seq-base); font-weight: 700; }
+.pointer-cell.ptr-mid { color: var(--pivot); font-weight: 700; }
+.pointer-cell.ptr-high { color: var(--bin-base); font-weight: 700; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-em); border-radius: 4px; }
+
+/* ── Animations ── */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.panel, .controls, .stats-bar, .complexity { animation: fadeIn 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="badge">Paradigmas de Programación · Algoritmos de Búsqueda</div>
+  <h1>Búsqueda Secuencial<br>vs Búsqueda Binaria</h1>
+  <p class="header-sub">Comparación visual paso a paso · O(n) frente a O(log n)</p>
+</header>
+
+<main>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="ctrl-group">
+      <span class="ctrl-label">Tamaño del vector</span>
+      <input type="number" id="vecSize" value="16" min="6" max="28" />
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Elemento buscado</span>
+      <div id="targetDisplay" class="target-display">–</div>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Posición en el vector</span>
+      <select id="targetPos">
+        <option value="start">Al inicio (mejor caso seq)</option>
+        <option value="end" selected>Al final (peor caso seq)</option>
+        <option value="middle">Al medio</option>
+        <option value="random">Aleatoria</option>
+      </select>
+    </div>
+    <button class="btn btn-gen" onclick="generateVector()">↺ Generar vector</button>
+    <button class="btn btn-primary" id="btnStart" onclick="startSearch()">▶ Iniciar búsqueda</button>
+    <div class="step-controls">
+      <button class="btn btn-secondary" id="btnPrev" onclick="stepBack()" disabled>← Paso</button>
+      <span class="step-info" id="stepInfo">–</span>
+      <button class="btn btn-secondary" id="btnNext" onclick="stepForward()" disabled>Paso →</button>
+      <button class="btn btn-secondary" id="btnAuto" onclick="toggleAuto()" disabled>▶▶ Auto</button>
+    </div>
+  </div>
+
+  <!-- Comparison panels -->
+  <div class="comparison-grid">
+
+    <!-- Sequential -->
+    <div class="panel">
+      <div class="panel-header seq">
+        <div class="panel-title seq"><div class="dot"></div>BÚSQUEDA SECUENCIAL</div>
+        <div class="panel-algo">Linear Search</div>
+      </div>
+      <div class="panel-body">
+        <div class="vec-wrapper">
+          <div class="vec-row" id="seqVec"></div>
+        </div>
+        <div class="step-log" id="seqLog">
+          <div class="log-entry"><span class="log-step">—</span><span class="log-msg seq">En espera...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Binary -->
+    <div class="panel">
+      <div class="panel-header bin">
+        <div class="panel-title bin"><div class="dot"></div>BÚSQUEDA BINARIA</div>
+        <div class="panel-algo">Binary Search</div>
+      </div>
+      <div class="panel-body">
+        <div class="vec-wrapper">
+          <div id="binPointers" class="pointer-row"></div>
+          <div class="vec-row" id="binVec"></div>
+        </div>
+        <div class="step-log" id="binLog">
+          <div class="log-entry"><span class="log-step">—</span><span class="log-msg bin">En espera...</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat">
+      <span class="stat-label">Comparaciones — Secuencial</span>
+      <span class="stat-value seq" id="statSeq">0</span>
+      <div class="stat-bar-outer"><div class="stat-bar-inner seq" id="barSeq" style="width:0%"></div></div>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">
+      <span class="stat-label">Comparaciones — Binaria</span>
+      <span class="stat-value bin" id="statBin">0</span>
+      <div class="stat-bar-outer"><div class="stat-bar-inner bin" id="barBin" style="width:0%"></div></div>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">
+      <span class="stat-label">Ventaja binaria</span>
+      <span class="stat-value neutral" id="statRatio">–</span>
+    </div>
+    <div id="winnerBadge" style="display:none" class="winner-badge">Binaria gana</div>
+  </div>
+
+  <!-- Complexity reference -->
+  <div class="complexity">
+    <h3>Referencia de Complejidad Algorítmica</h3>
+    <div class="complexity-grid">
+      <div class="complexity-card">
+        <div class="cc-title" style="color:var(--seq-base)">Búsqueda Secuencial</div>
+        <div class="cc-row"><span class="cc-case">Mejor caso</span><span class="cc-val seq">O(1)</span></div>
+        <div class="cc-row"><span class="cc-case">Caso promedio</span><span class="cc-val seq">O(n/2)</span></div>
+        <div class="cc-row"><span class="cc-case">Peor caso</span><span class="cc-val seq">O(n)</span></div>
+        <div class="cc-row"><span class="cc-case">Requiere orden</span><span class="cc-val" style="color:var(--text-secondary)">No</span></div>
+      </div>
+      <div class="complexity-card">
+        <div class="cc-title" style="color:var(--bin-base)">Búsqueda Binaria</div>
+        <div class="cc-row"><span class="cc-case">Mejor caso</span><span class="cc-val bin">O(1)</span></div>
+        <div class="cc-row"><span class="cc-case">Caso promedio</span><span class="cc-val bin">O(log n)</span></div>
+        <div class="cc-row"><span class="cc-case">Peor caso</span><span class="cc-val bin">O(log n)</span></div>
+        <div class="cc-row"><span class="cc-case">Requiere orden</span><span class="cc-val" style="color:var(--found)">Sí</span></div>
+      </div>
+      <div class="complexity-card">
+        <div class="cc-title">Comparación para n=16</div>
+        <div class="cc-row"><span class="cc-case">Seq. peor caso</span><span class="cc-val seq">16 comparaciones</span></div>
+        <div class="cc-row"><span class="cc-case">Bin. peor caso</span><span class="cc-val bin">4 comparaciones</span></div>
+        <div class="cc-row"><span class="cc-case">log₂(16)</span><span class="cc-val" style="color:var(--text-primary)">= 4</span></div>
+      </div>
+      <div class="complexity-card">
+        <div class="cc-title">Pseudocódigo — Binaria</div>
+        <div style="font-size:10px;color:var(--text-secondary);line-height:1.8;margin-top:4px">
+          low ← 0, high ← n-1<br>
+          <span style="color:var(--text-tertiary)">mientras</span> low ≤ high:<br>
+          &nbsp;&nbsp;mid ← (low+high) / 2<br>
+          &nbsp;&nbsp;<span style="color:var(--text-tertiary)">si</span> arr[mid] = objetivo → <span style="color:var(--found)">hallado</span><br>
+          &nbsp;&nbsp;<span style="color:var(--text-tertiary)">si</span> arr[mid] &lt; objetivo → low = mid+1<br>
+          &nbsp;&nbsp;<span style="color:var(--text-tertiary)">sino</span> → high = mid-1
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let arr = [];
+let target = 0;
+let seqSteps = [];  // list of snapshot states
+let binSteps = [];
+let currentStep = 0;
+let autoTimer = null;
+let isAuto = false;
+let searchReady = false;
+
+// ── Generate vector ─────────────────────────────────────────────────
+function generateVector() {
+  stopAuto();
+  searchReady = false;
+  const n = Math.max(6, Math.min(28, parseInt(document.getElementById('vecSize').value) || 16));
+  document.getElementById('vecSize').value = n;
+
+  // Unique sorted values
+  const set = new Set();
+  while (set.size < n) set.add(Math.floor(Math.random() * n * 4) + 1);
+  arr = [...set].sort((a,b) => a - b);
+
+  // Choose target
+  const pos = document.getElementById('targetPos').value;
+  let targetIdx;
+  if (pos === 'start') targetIdx = 0;
+  else if (pos === 'end') targetIdx = n - 1;
+  else if (pos === 'middle') targetIdx = Math.floor(n / 2);
+  else targetIdx = Math.floor(Math.random() * n);
+
+  target = arr[targetIdx];
+  document.getElementById('targetDisplay').textContent = target;
+
+  resetSearch();
+  renderVecInitial('seqVec', arr, []);
+  renderVecInitial('binVec', arr, []);
+  renderBinPointers(arr.length, -1, -1, -1);
+  resetStats();
+}
+
+// ── Compute all steps for sequential search ─────────────────────────
+function computeSeqSteps() {
+  const steps = [];
+  const n = arr.length;
+  for (let i = 0; i < n; i++) {
+    const state = {
+      checking: i,
+      found: arr[i] === target,
+      comparisons: i + 1,
+      msg: arr[i] === target
+        ? `✓ arr[${i}] = ${arr[i]} → ¡ENCONTRADO! (${i+1} comparación${i>0?'es':''})`
+        : `arr[${i}] = ${arr[i]} ≠ ${target} → continuar`,
+    };
+    steps.push(state);
+    if (arr[i] === target) break;
+  }
+  return steps;
+}
+
+// ── Compute all steps for binary search ────────────────────────────
+function computeBinSteps() {
+  const steps = [];
+  let low = 0, high = arr.length - 1;
+  let comparisons = 0;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    comparisons++;
+    if (arr[mid] === target) {
+      steps.push({ low, mid, high, found: true, comparisons, msg: `✓ arr[${mid}] = ${arr[mid]} → ¡ENCONTRADO! (${comparisons} comp.)`, result: mid });
+      break;
+    } else if (arr[mid] < target) {
+      steps.push({ low, mid, high, found: false, comparisons, direction: 'right', msg: `arr[${mid}]=${arr[mid]} < ${target} → buscar en derecha [${mid+1}..${high}]` });
+      low = mid + 1;
+    } else {
+      steps.push({ low, mid, high, found: false, comparisons, direction: 'left', msg: `arr[${mid}]=${arr[mid]} > ${target} → buscar en izquierda [${low}..${mid-1}]` });
+      high = mid - 1;
+    }
+  }
+  return steps;
+}
+
+// ── Render vector ───────────────────────────────────────────────────
+function renderVecInitial(id, array, classes) {
+  const row = document.getElementById(id);
+  row.innerHTML = array.map((v, i) => `
+    <div class="cell">
+      <div class="cell-box" id="${id}-${i}">${v}</div>
+      <div class="cell-idx">[${i}]</div>
+    </div>
+  `).join('');
+}
+
+function applySeqState(stepIdx) {
+  const n = arr.length;
+  // Reset all
+  for (let i = 0; i < n; i++) {
+    const box = document.getElementById(`seqVec-${i}`);
+    if (!box) continue;
+    box.className = 'cell-box';
+  }
+  if (stepIdx < 0) return;
+  const s = seqSteps[stepIdx];
+  // Mark already checked (before current)
+  for (let i = 0; i < s.checking; i++) {
+    const box = document.getElementById(`seqVec-${i}`);
+    if (box) box.style.opacity = '0.35';
+  }
+  // Reset opacity for current and after
+  for (let i = s.checking; i < n; i++) {
+    const box = document.getElementById(`seqVec-${i}`);
+    if (box) box.style.opacity = '1';
+  }
+  const cur = document.getElementById(`seqVec-${s.checking}`);
+  if (cur) cur.className = s.found ? 'cell-box found' : 'cell-box checking-seq';
+}
+
+function applyBinState(stepIdx) {
+  const n = arr.length;
+  if (stepIdx < 0) {
+    for (let i = 0; i < n; i++) {
+      const box = document.getElementById(`binVec-${i}`);
+      if (box) { box.className = 'cell-box'; box.style.opacity = '1'; }
+    }
+    renderBinPointers(n, -1, -1, -1);
+    return;
+  }
+  const s = binSteps[stepIdx];
+  // Get eliminated zones from ALL steps up to current
+  // low and high from latest step
+  for (let i = 0; i < n; i++) {
+    const box = document.getElementById(`binVec-${i}`);
+    if (!box) continue;
+    box.style.opacity = '1';
+    if (i < s.low || i > s.high) {
+      box.className = 'cell-box eliminated';
+    } else if (i === s.mid) {
+      box.className = s.found ? 'cell-box found' : 'cell-box checking-bin pivot';
+    } else {
+      box.className = 'cell-box in-range';
+    }
+  }
+  renderBinPointers(n, s.low, s.mid, s.high);
+}
+
+function renderBinPointers(n, low, mid, high) {
+  const row = document.getElementById('binPointers');
+  row.innerHTML = Array.from({length: n}, (_, i) => {
+    let label = '';
+    let cls = 'pointer-cell';
+    if (i === low && i === high) { label = 'L/H'; cls += ' ptr-low'; }
+    else if (i === low && i === mid) { label = 'L/M'; cls += ' ptr-mid'; }
+    else if (i === high && i === mid) { label = 'M/H'; cls += ' ptr-mid'; }
+    else if (i === low) { label = 'low'; cls += ' ptr-low'; }
+    else if (i === mid) { label = 'mid'; cls += ' ptr-mid'; }
+    else if (i === high) { label = 'high'; cls += ' ptr-high'; }
+    return `<div class="${cls}">${label}</div>`;
+  }).join('');
+}
+
+// ── Log ─────────────────────────────────────────────────────────────
+function addLog(id, stepNum, msg, type) {
+  const log = document.getElementById(id);
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  const cls = type === 'found' ? 'found' : type;
+  entry.innerHTML = `<span class="log-step">${stepNum}.</span><span class="log-msg ${cls}">${msg}</span>`;
+  log.appendChild(entry);
+}
+
+function rebuildLogs(upTo) {
+  document.getElementById('seqLog').innerHTML = '';
+  document.getElementById('binLog').innerHTML = '';
+  const maxS = Math.min(upTo, seqSteps.length - 1);
+  const maxB = Math.min(upTo, binSteps.length - 1);
+  for (let i = 0; i <= maxS; i++) {
+    const s = seqSteps[i];
+    addLog('seqLog', i + 1, s.msg, s.found ? 'found' : 'seq');
+  }
+  for (let i = 0; i <= maxB; i++) {
+    const s = binSteps[i];
+    addLog('binLog', i + 1, s.msg, s.found ? 'found' : 'bin');
+  }
+}
+
+// ── Stats ───────────────────────────────────────────────────────────
+function resetStats() {
+  document.getElementById('statSeq').textContent = '0';
+  document.getElementById('statBin').textContent = '0';
+  document.getElementById('statRatio').textContent = '–';
+  document.getElementById('barSeq').style.width = '0%';
+  document.getElementById('barBin').style.width = '0%';
+  document.getElementById('winnerBadge').style.display = 'none';
+}
+
+function updateStats(step) {
+  const seqIdx = Math.min(step, seqSteps.length - 1);
+  const binIdx = Math.min(step, binSteps.length - 1);
+  const sc = seqIdx >= 0 ? seqSteps[seqIdx].comparisons : 0;
+  const bc = binIdx >= 0 ? binSteps[binIdx].comparisons : 0;
+  const total = Math.max(sc, arr.length);
+  document.getElementById('statSeq').textContent = sc;
+  document.getElementById('statBin').textContent = bc;
+  document.getElementById('barSeq').style.width = `${(sc / total) * 100}%`;
+  document.getElementById('barBin').style.width = `${(bc / total) * 100}%`;
+  if (sc > 0 && bc > 0) {
+    const ratio = (sc / bc).toFixed(1);
+    document.getElementById('statRatio').textContent = ratio + '×';
+    document.getElementById('winnerBadge').style.display = sc > bc ? 'block' : 'none';
+  }
+}
+
+// ── Navigation ──────────────────────────────────────────────────────
+function resetSearch() {
+  stopAuto();
+  currentStep = -1;
+  seqSteps = [];
+  binSteps = [];
+  searchReady = false;
+  document.getElementById('seqLog').innerHTML = '<div class="log-entry"><span class="log-step">—</span><span class="log-msg seq">En espera...</span></div>';
+  document.getElementById('binLog').innerHTML = '<div class="log-entry"><span class="log-step">—</span><span class="log-msg bin">En espera...</span></div>';
+  document.getElementById('btnPrev').disabled = true;
+  document.getElementById('btnNext').disabled = true;
+  document.getElementById('btnAuto').disabled = true;
+  document.getElementById('stepInfo').textContent = '–';
+  resetStats();
+}
+
+function startSearch() {
+  if (arr.length === 0) { generateVector(); return; }
+  stopAuto();
+  seqSteps = computeSeqSteps();
+  binSteps = computeBinSteps();
+  const totalSteps = Math.max(seqSteps.length, binSteps.length);
+  currentStep = 0;
+  searchReady = true;
+
+  // Reset visuals
+  for (let i = 0; i < arr.length; i++) {
+    const sb = document.getElementById(`seqVec-${i}`);
+    const bb = document.getElementById(`binVec-${i}`);
+    if (sb) { sb.className = 'cell-box'; sb.style.opacity = '1'; }
+    if (bb) { bb.className = 'cell-box'; bb.style.opacity = '1'; }
+  }
+  document.getElementById('seqLog').innerHTML = '';
+  document.getElementById('binLog').innerHTML = '';
+
+  applyStep(0);
+  document.getElementById('btnPrev').disabled = true;
+  document.getElementById('btnNext').disabled = totalSteps <= 1;
+  document.getElementById('btnAuto').disabled = false;
+}
+
+function applyStep(step) {
+  applySeqState(Math.min(step, seqSteps.length - 1));
+  applyBinState(Math.min(step, binSteps.length - 1));
+  rebuildLogs(step);
+  updateStats(step);
+  const total = Math.max(seqSteps.length, binSteps.length);
+  document.getElementById('stepInfo').textContent = `${step + 1} / ${total}`;
+  document.getElementById('btnPrev').disabled = step === 0;
+  document.getElementById('btnNext').disabled = step >= total - 1;
+}
+
+function stepForward() {
+  if (!searchReady) return;
+  const total = Math.max(seqSteps.length, binSteps.length);
+  if (currentStep < total - 1) { currentStep++; applyStep(currentStep); }
+}
+
+function stepBack() {
+  if (!searchReady) return;
+  if (currentStep > 0) { currentStep--; applyStep(currentStep); }
+}
+
+function toggleAuto() {
+  if (isAuto) stopAuto();
+  else startAuto();
+}
+
+function startAuto() {
+  isAuto = true;
+  document.getElementById('btnAuto').textContent = '⏸ Pausar';
+  autoTimer = setInterval(() => {
+    const total = Math.max(seqSteps.length, binSteps.length);
+    if (currentStep >= total - 1) { stopAuto(); return; }
+    currentStep++;
+    applyStep(currentStep);
+  }, 900);
+}
+
+function stopAuto() {
+  isAuto = false;
+  clearInterval(autoTimer);
+  document.getElementById('btnAuto').textContent = '▶▶ Auto';
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+generateVector();
+</script>
+</body>
+</html>
